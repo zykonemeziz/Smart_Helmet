@@ -164,10 +164,6 @@ void handleAlertState() {
     default:
       break;
   }
-
-    default:
-      break;
-  }
 }
 
 void updateIndicatorsPriority() {
