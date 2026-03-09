@@ -46,4 +46,5 @@ void loop() {
   handleAlertState();  // Run fall-alert countdown / SMS
   checkDrowsiness();   // Read IR sensor, detect drowsiness
   processSMSQueue();   // Advance non-blocking SMS sending
+  updateIndicatorsPriority(); // Apply LED/Buzzer priorities
 }

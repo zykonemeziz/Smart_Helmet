@@ -26,4 +26,13 @@ void handleAlertState();
 /// Returns the current fall-detection state
 FallState getFallState();
 
+/// Call at the end of loop() to update LED and Buzzer based on priorities
+void updateIndicatorsPriority();
+
+/// Returns the current calculated tilt angle (degrees)
+float getTiltAngle();
+
+/// Returns true if tilt warning (>= 60 deg) is active
+bool getTiltWarningActive();
+
 #endif // FALL_DETECTION_H

@@ -20,6 +20,7 @@
 #include <Adafruit_MPU6050.h>
 #include <Adafruit_Sensor.h>
 #include <math.h>
+#include "drowsiness.h"
 
 // ─── Internal state ─────────────────────────────────────────────────────────
 static Adafruit_MPU6050 mpu;
@@ -29,6 +30,8 @@ static unsigned long countdownStart     = 0;
 static bool          smsSentFall        = false;
 static unsigned long lastAccelRead      = 0;
 static float         lastTotalAccel     = 0;
+static float         lastTiltAngle      = 0;
+static bool          tiltWarningActive  = false;
 
 // Reset-to-normal tracking
 static unsigned long normalStartTime    = 0;
@@ -40,6 +43,10 @@ static unsigned long lastBlinkToggle    = 0;
 
 // Debug: avoid printing the same countdown second twice
 static unsigned long lastPrintedSec     = 0xFFFFFFFF;
+
+// Tilt blink helper
+static bool          tiltLedOn          = false;
+static unsigned long lastTiltBlinkToggle = 0;
 
 // ─── Setup ──────────────────────────────────────────────────────────────────
 void fallSetup() {
@@ -68,6 +75,13 @@ void checkFall() {
     a.acceleration.z * a.acceleration.z
   );
 
+  // Tilt calculation (in degrees)
+  // tilt = atan2(ax, sqrt(ay*ay + az*az)) * 180 / PI
+  lastTiltAngle = atan2(a.acceleration.x, sqrt(a.acceleration.y * a.acceleration.y + a.acceleration.z * a.acceleration.z)) * 180.0f / M_PI;
+  lastTiltAngle = abs(lastTiltAngle); // We want the magnitude (either direction)
+
+  tiltWarningActive = (lastTiltAngle >= TILT_THRESHOLD_DEG);
+
   // Trigger only in monitoring state
   if (fallState == FALL_MONITORING && lastTotalAccel > IMPACT_THRESHOLD) {
     Serial.println("[FALL] >> Impact detected!");
@@ -77,9 +91,6 @@ void checkFall() {
     ledBlinkOn         = false;
     normalTimerRunning = false;
     lastPrintedSec     = 0xFFFFFFFF;
-
-    digitalWrite(LED_PIN,    HIGH);
-    digitalWrite(BUZZER_PIN, HIGH);
   }
 }
 
@@ -96,8 +107,6 @@ void handleAlertState() {
       // Cancel button
       if (digitalRead(BUTTON_PIN) == LOW) {
         Serial.println("[FALL] >> Alert CANCELLED");
-        digitalWrite(LED_PIN,    LOW);
-        digitalWrite(BUZZER_PIN, LOW);
         fallState = FALL_MONITORING;
         return;
       }
@@ -107,7 +116,6 @@ void handleAlertState() {
         // 3–5 s : blink
         if (now - lastBlinkToggle >= LED_BLINK_INTERVAL_MS) {
           ledBlinkOn = !ledBlinkOn;
-          digitalWrite(LED_PIN, ledBlinkOn ? HIGH : LOW);
           lastBlinkToggle = now;
         }
       }
@@ -115,9 +123,6 @@ void handleAlertState() {
 
       // Countdown expired → send SMS
       if (elapsed >= COUNTDOWN_MS) {
-        digitalWrite(BUZZER_PIN, LOW);
-        digitalWrite(LED_PIN,    LOW);
-
         if (!smsSentFall) {
           String msg = "Emergency Alert! Fall detected. Location: " + getGPSLocation();
           sendSMS(msg);
@@ -159,9 +164,63 @@ void handleAlertState() {
     default:
       break;
   }
+
+    default:
+      break;
+  }
+}
+
+void updateIndicatorsPriority() {
+  unsigned long now = millis();
+  bool finalLedState = false;
+  bool finalBuzzerState = false;
+
+  // 1. FALL DETECTION (Highest Priority)
+  if (fallState == FALL_COUNTDOWN) {
+    unsigned long elapsed = now - countdownStart;
+    finalBuzzerState = true; // Buzzer solid during countdown
+    if (elapsed < LED_BLINK_START_MS) {
+      finalLedState = true; // Solid ON 0-3s
+    } else {
+      // Blink 3-5s
+      finalLedState = ledBlinkOn;
+    }
+  } 
+  // 2. DROWSINESS (Middle Priority)
+  else if (getDrowsyActive()) {
+    finalBuzzerState = true;
+    finalLedState = false; // Drowsiness doesn't use LED in current spec
+  }
+  // 3. TILT WARNING (Lowest Priority)
+  else if (tiltWarningActive) {
+    // Handle tilt blinking timing
+    if (now - lastTiltBlinkToggle >= TILT_BLINK_INTERVAL_MS) {
+      tiltLedOn = !tiltLedOn;
+      lastTiltBlinkToggle = now;
+    }
+    finalLedState = tiltLedOn;
+    finalBuzzerState = false;
+  }
+  else {
+    // Normal state
+    finalLedState = false;
+    finalBuzzerState = false;
+  }
+
+  // Apply to pins
+  digitalWrite(LED_PIN,    finalLedState ? HIGH : LOW);
+  digitalWrite(BUZZER_PIN, finalBuzzerState ? HIGH : LOW);
 }
 
 // ─── Public query ───────────────────────────────────────────────────────────
 FallState getFallState() {
   return fallState;
+}
+
+float getTiltAngle() {
+  return lastTiltAngle;
+}
+
+bool getTiltWarningActive() {
+  return tiltWarningActive;
 }

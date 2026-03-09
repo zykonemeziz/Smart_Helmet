@@ -25,13 +25,15 @@
 #define PHONE_NUMBER    "+918891246434"
 
 // ─── Fall Detection Thresholds ──────────────────────────────────────────────
-#define IMPACT_THRESHOLD       20.0f   // m/s² — total accel to trigger fall
+#define IMPACT_THRESHOLD       11.5f   // m/s² — total accel to trigger fall (tested at 11-12)
 #define NORMAL_THRESHOLD       12.0f   // m/s² — below this = "normal" orientation
+#define TILT_THRESHOLD_DEG     60.0f   // Angle in degrees to trigger tilt warning
 
 // ─── Timing (milliseconds) ─────────────────────────────────────────────────
 #define COUNTDOWN_MS           5000UL  // Full alert countdown duration
 #define LED_BLINK_START_MS     3000UL  // LED starts blinking at this point into countdown
 #define LED_BLINK_INTERVAL_MS  500UL   // LED on/off toggle interval
+#define TILT_BLINK_INTERVAL_MS 500UL   // LED toggle interval for tilt warning
 #define NORMAL_HOLD_MS         2000UL  // Sustained normal accel before reset
 #define DROWSY_THRESHOLD_MS    3000UL  // Eyes closed this long = drowsy
 #define ACCEL_READ_INTERVAL_MS 300UL   // MPU6050 polling interval

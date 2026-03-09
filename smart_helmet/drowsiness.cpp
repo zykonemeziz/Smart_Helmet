@@ -44,8 +44,7 @@ void checkDrowsiness() {
       // Activate buzzer
       if (!drowsyBuzzerOn) {
         drowsyBuzzerOn = true;
-        digitalWrite(BUZZER_PIN, HIGH);
-        Serial.println("[DROWSY] >> Eyes closed too long — buzzer ON");
+        Serial.println("[DROWSY] >> Eyes closed too long — buzzer request ON");
       }
 
       // Send SMS once per event
@@ -64,15 +63,15 @@ void checkDrowsiness() {
 
       if (drowsyBuzzerOn) {
         drowsyBuzzerOn = false;
-        // Only turn off buzzer if fall countdown isn't also buzzing
-        if (getFallState() != FALL_COUNTDOWN) {
-          digitalWrite(BUZZER_PIN, LOW);
-        }
-        Serial.println("[DROWSY] >> Eyes open — buzzer OFF");
+        Serial.println("[DROWSY] >> Eyes open — buzzer request OFF");
       }
 
       // Reset so a NEW drowsy event can trigger again
       smsSentDrowsy = false;
     }
   }
+}
+
+bool getDrowsyActive() {
+  return drowsyBuzzerOn;
 }
